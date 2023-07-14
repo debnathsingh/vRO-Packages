@@ -1,0 +1,182 @@
+//Commvault
+System.log("******** Get the Token Inputs ********");
+System.log("Commvault URL : "+attRestHost.url);
+System.log("Rest User : "+attRestUser);
+System.log("Rest Password : "+attRestPassword);
+System.log("");
+
+//Function to execute the URL
+function executeREST(operationUrl, method, body)
+{
+	System.debug("Operation: " + operationUrl + ", Request Type: " + method);
+	var request = attRestHost.createRequest(method, operationUrl, body);
+	request.contentType = "application/json";
+	request.setHeader("Accept", "application/json");
+	
+	var response = request.execute();
+
+	//Check the Status Code
+	if (response.statusCode == 200)
+	{
+		return System.getModule("com.dedicatedcloud.library.rest").getJSONFromString(response.contentAsString);
+	}
+	else
+	{
+		var json = System.getModule("com.dedicatedcloud.library.rest").getJSONFromString(response.contentAsString);
+		System.error('REST request failed: ' + json.message);
+		throw 'REST request failed: ' + json.message;
+	}
+} 
+//Main script
+try
+{
+	//Create the URL
+	var url = "webconsole/api/Login"
+	//Create the JSON
+	var creds = '{"username": "'+attRestUser+'","password": "'+attRestPassword+'"}';
+	System.log(creds);
+	var res = executeREST(url, "POST", creds);
+	
+	authToken = res.token;
+	if(authToken)
+	{
+		outToken = authToken;
+		System.log("Auth Token is : "+outToken);
+	}
+	else
+	{
+		throw "Auth Token is empty."
+	}
+}
+catch(e)
+{
+	var error = "Error occured in 'Get the Token' Task. Error Details : "+e;
+	throw error;
+}
+
+//Rubrik
+System.log("******** Get the Token Inputs ********");
+System.log("Rubrik URL : "+wfRubrikUrl)
+System.log("Rubrik Configuration : "+attRubrikDetailsConfig);
+System.log("");
+
+//Main script
+try
+{
+	//Get the attributes of Token
+	var attributes = attRubrikDetailsConfig.attributes;
+	for each(var attribute in attributes)
+	{
+		System.log("Quering Attribute : "+attribute.name);
+		System.log("Quering Attribute URL : "+attribute.value.url+" and matching with "+wfRubrikUrl);
+		
+		//Match the URL with the input URL
+		if(attribute.value.url.toLowerCase() == wfRubrikUrl.toLowerCase())
+		{
+			//outRubrikToken = attribute.value.token;
+			outRubrikUsername = attribute.value.username;
+			outRubrikPassword = attribute.value.password;
+			System.log("Matching Attribute : "+attribute.name);
+			System.log("Matching URL : "+attribute.value.url);
+			System.log("Matching Username : "+outRubrikUsername);
+			System.log("Matching Password : "+outRubrikPassword);
+			System.log("");
+			break;
+		}
+		System.log("");
+	}
+	if(outRubrikUsername && outRubrikPassword)
+	{
+		System.log("The creds is found for instance : "+wfRubrikUrl);
+		System.log("Username : "+outRubrikUsername);
+		System.log("Password : "+outRubrikPassword);
+	}
+	else
+	{
+		throw "The Username and/or Password is not found for instance : "+wfRubrikUrl;
+	}
+}
+catch(e)
+{
+	var error = "Error occured in 'Get the Creds' Task. Error Details : "+e;
+	throw error;
+}
+
+//Nasuni
+System.log("******** nasuniGetToken Inputs ********");
+System.log("nasuniUrl : "+nasuniUrl);
+System.log("nasuniUsername : "+nasuniUsername);
+System.log("nasuniPassword : "+nasuniPassword);
+System.log("nasuniVersion : "+nasuniVersion);
+var method = "POST"
+System.log("Method : "+method);
+var content = "{\"username\":\""+nasuniUsername+"\",\"password\":\""+nasuniPassword+"\"}"
+System.log("content : "+content);
+System.log("");
+try
+{
+	if (!nasuniUrl){throw "The nasuni URL is empty"}
+	if (nasuniUrl) {
+		System.log("Looking up Rest Authorization for nasuni URL : " + nasuniUrl);
+		//Fetching all the host and getting the nasuni Host
+		var getHosts = RESTHostManager.getHosts();
+	  	for(var restHostId in getHosts){	
+	  		var restHost = RESTHostManager.getHost(getHosts[restHostId]);
+			//Matching the URL of the nasuni Plugin
+			if (restHost.url.toLowerCase() == nasuniUrl.toLowerCase()) {
+		   		nasuniHost = restHost;
+				System.log("nasuni Instance Found : "+nasuniHost.Name +", URL : "+restHost.url);
+				break;
+			}
+	  	}
+	}
+	//If the nasuni Host is found
+	if(nasuniHost)
+	{
+		url = encodeURI("api/" + nasuniVersion + "/auth/login/");
+		System.log("Executing......nasuni URL : "+restHost.url + "/" + url + ", Method : " + method+ ", Content : "+content);
+		var request = nasuniHost.createRequest(method, url, content);
+		
+		//Setting Header and Content Type
+		request.contentType = "application\/json";
+		request.setHeader("Accept", "application/json");
+		//request.setHeader("Authorization", nasuniToken);
+		var response;
+		try {
+			response = request.execute();
+			var statusCode = response.statusCode;
+			
+		}
+		catch (e) {
+			throw "Stopping Execution, Error : "+e;
+		}
+		if(statusCode == "200")
+		{
+			System.log("Response : "+response.contentAsString);
+			var json = JSON.parse(response.contentAsString);
+			if(json.token)
+			{
+				System.log("Nasuni Token : "+ json.token);
+				return json.token;
+			}
+			else
+			{
+				throw "Token not generated"
+			}
+		}
+		else
+		{
+			throw "Error occurred in API execution." + response.contentAsString;
+		}
+	}
+	else
+	{
+		throw "The nasuni URL"+nasuniUrl+"not found in the REST plugin";
+	}
+}
+catch(e)
+{
+	var error = "Error occured in Actionelement. Error Details : "+e;
+	throw error;
+}	
+
